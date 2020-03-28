@@ -73,6 +73,8 @@ class UnionFeatureModel(tf.keras.Model):
     """UnionFeatureModel
     Only consider sequential features and addressing the prediction using LSTM
     """
+    name = 'UnionFeatureModel'
+    
     def __init__(self):
         super(UnionFeatureModel, self).__init__()
         self.preprocessing_layer = build_input_features()
@@ -85,20 +87,23 @@ class UnionFeatureModel(tf.keras.Model):
             self.lstm = tf.keras.layers.RNN(
                 tf.keras.layers.LSTMCell(32), 
                 input_shape=(None, 64), return_state=True)
+        self.shared_fc = tf.keras.layers.Dense(32, activation='relu')
         self.fc_global = tf.keras.layers.Dense(1, activation=None)
 
     def call(self, input_op):
         proc_xs = self.preprocessing_layer(input_op)
         seq_xs = tf.split(proc_xs, G.GLOBAL_SPLITS, axis=-1)
         embedded_xs = []
-        for seq in seq_xs:
+        for seq in seq_xs[: -1]:
             embedded = self.fc_shared_2(self.fc_shared_1(proc_xs))
             embedded_xs.append(embedded)
-        unstacked = tf.unstack(embedded_xs, axis=1)
-        lstm_hidden = self.lstm(unstacked)
+        shared_embedded = self.shared_fc(seq_xs[-1])
+        stacked = tf.stack(embedded_xs, axis=1)
+        lstm_hidden = self.lstm(stacked)
+        concat = tf.keras.layers.concatenate([lstm_hidden[-1], shared_embedded], axis=-1)
         print(len(lstm_hidden))
         print(lstm_hidden)
-        return self.fc_global(lstm_hidden)
+        return self.fc_global(concat)
 
 
 def build_union_feature_model():
