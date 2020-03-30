@@ -7,32 +7,30 @@ import global_variables as G
 
 
 def build_input_features():
-    # preprocessing categorical features
-    categorical_columns = []
-    for feature, vocab in G.CATEGORIES.items():
-        cat_col = tf.feature_column.categorical_column_with_vocabulary_list(
-                key=feature, vocabulary_list=vocab)
-        categorical_columns.append(tf.feature_column.indicator_column(cat_col))
-
-    # preprocessing continuous features
+    # functor to preprocess continuous features
     def process_continuous_data(mean, var, data):
         data = (tf.cast(data, tf.float32) - mean) / var
         return tf.reshape(data, [-1, 1])
-    numerical_columns = []
-    for feature in G.MEANVARS.keys():
-        norm_fn = functools.partial(process_continuous_data, *G.MEANVARS[feature])
-        num_col = tf.feature_column.numeric_column(feature, normalizer_fn=norm_fn)
-        numerical_columns.append(num_col)
+    
+    # Compared with the codes given in tf2.0 documentary, 
+    # this can guarantee the correctness of the feature order
+    feature_columns = []
+    for col in G.COLUMNS:
+        if col in G.CATEGORIES.keys():
+            print(' [*] processing column key={} \t\ttype=CATEGORICAL'.format(col))
+            cat_col = tf.feature_column.categorical_column_with_vocabulary_list(
+                key=col, vocabulary_list=G.CATEGORIES[col])
+            feature = tf.feature_column.indicator_column(cat_col)
+        elif col in G.MEANVARS.keys():
+            print(' [*] processing column key={} \t\ttype=NUMERICAL'.format(col))
+            norm_fn = functools.partial(process_continuous_data, *G.MEANVARS[col])
+            feature = tf.feature_column.numeric_column(key=col, normalizer_fn=norm_fn)
+        else:
+            continue
+        feature_columns.append(feature)
 
     # preprocessing layer in keras
-    preprocessing_layer = tf.keras.layers.DenseFeatures(
-            categorical_columns + numerical_columns)
-
-    # start to build input feature models
-    # preprocessed = preprocessing_layer(input_op)
-    # feature_list = tf.split(preprocessing_layer, G.GLOBAL_SPLITS, axis=-1)
-    # output_list = [tf.split(feat, G.SEQ_SPLITS, axis=-1) for feat in feature_list[: -1]]
-    # output_list.append(feature_list[-1])
+    preprocessing_layer = tf.keras.layers.DenseFeatures(feature_columns)
     return preprocessing_layer
 
 
@@ -78,11 +76,11 @@ class UnionFeatureModel(tf.keras.Model):
     def __init__(self):
         super(UnionFeatureModel, self).__init__()
         self.preprocessing_layer = build_input_features()
-        self.fc_shared_1 = tf.keras.layers.Dense(128, activation='relu')
-        self.fc_shared_2 = tf.keras.layers.Dense(64, activation='relu')
+        self.fc_shared_1 = tf.keras.layers.Dense(256, activation='relu')
+        self.fc_shared_2 = tf.keras.layers.Dense(128, activation='relu')
         if tf.test.is_built_with_cuda():
             self.lstm = tf.keras.layers.LSTM(
-                units=32, input_shape=(None, 64), return_state=True)
+                units=64, input_shape=(None, 128), return_state=True)
         else:
             self.lstm = tf.keras.layers.RNN(
                 tf.keras.layers.LSTMCell(32), 
@@ -101,8 +99,6 @@ class UnionFeatureModel(tf.keras.Model):
         stacked = tf.stack(embedded_xs, axis=1)
         lstm_hidden = self.lstm(stacked)
         concat = tf.keras.layers.concatenate([lstm_hidden[-1], shared_embedded], axis=-1)
-        print(len(lstm_hidden))
-        print(lstm_hidden)
         return self.fc_global(concat)
 
 

@@ -6,11 +6,12 @@ from models import build_union_feature_model
 import global_variables as G
 
 parser = argparse.ArgumentParser(description='Training')
-parser.add_argument('--gpu', default='', type=str, help='which gpu to be used')
+parser.add_argument('--gpu', default='0', type=str, help='which gpu to be used')
 parser.add_argument('--loss', default='mse', type=str, help='loss function')
 parser.add_argument('--csv-dir', default='./data', type=str, help='csv path')
 parser.add_argument('--save-dir', default='./train', type=str, help='csv path')
 parser.add_argument('--batch-size', default=256, type=int, help='batch size')
+parser.add_argument('--lr', default=3e-4, type=float, help='learning rate')
 parser.add_argument('--num-epochs', default=20, type=int, help='epoch number')
 parser.add_argument('--memory-growth', action="store_true", default=False)
 args = parser.parse_args()
@@ -47,10 +48,11 @@ def main():
             os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 
     model = build_union_feature_model()
-    adam = tf.keras.optimizers.Adam(lr=3e-4)
+    adam = tf.keras.optimizers.Adam(lr=args.lr)
     model.compile(loss=args.loss, optimizer=adam, metrics=['mae', 'mse'])
     if '{}.h5'.format(model.name) in os.listdir(args.save_dir):
         model.load_weights(os.path.join(args.save_dir, model.name + '.h5'))
+        print(' [*] Loaded pretrained model {}'.format(model.name))
     dataset = create_dataset(args.csv_dir, batch_size=args.batch_size, num_epochs=args.num_epochs)
     model.fit(dataset, epochs=args.num_epochs)
     model.save_weights(os.path.join(args.save_dir, model.name + '.h5'))

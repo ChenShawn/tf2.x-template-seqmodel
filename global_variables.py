@@ -44,6 +44,7 @@ COLUMNS = ['cityid', 'amount']
 for day in range(1, 8):
     for col in oldcols:
         COLUMNS.append('day_{}_{}'.format(day, col))
+
 CATEGORIES = {'cityid': list(range(12))}
 for day in range(1, 8):
     CATEGORIES['day_{}_direction'.format(day)] = [u'进港', u'出港']
