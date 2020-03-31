@@ -97,8 +97,8 @@ class UnionFeatureModel(tf.keras.Model):
             embedded_xs.append(embedded)
         shared_embedded = self.shared_fc(seq_xs[-1])
         stacked = tf.stack(embedded_xs, axis=1)
-        lstm_hidden = self.lstm(stacked)
-        concat = tf.keras.layers.concatenate([lstm_hidden[-1], shared_embedded], axis=-1)
+        lstm_hidden = self.lstm(stacked)[-2]
+        concat = tf.keras.layers.concatenate([lstm_hidden, shared_embedded], axis=-1)
         return self.fc_global(concat)
 
 
