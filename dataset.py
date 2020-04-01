@@ -4,7 +4,11 @@ import os
 import global_variables as G
 
 
-def create_dataset(csv_path, batch_size=64, num_epochs=20, shuffle=True):
+def create_dataset_from_folder(csv_path, batch_size=64, num_epochs=20, shuffle=True):
+    """create_dataset_from_folder
+    Used when multiple csv files are stored under the same directory
+    For evaluating, set num_epochs=1 and shuffle=False
+    """
     csv_files = os.listdir(csv_path)
     csv_files = [os.path.join(csv_path, fn) for fn in csv_files]
     dataset = tf.data.experimental.make_csv_dataset(
@@ -18,12 +22,20 @@ def create_dataset(csv_path, batch_size=64, num_epochs=20, shuffle=True):
     return dataset
 
 
-def create_tmp_dataset(csv_path, batch_size=3, num_epochs=1, shuffle=False):
+def create_dataset_from_file(csv_path, 
+                             batch_size=64, 
+                             num_epochs=20, 
+                             shuffle=False, 
+                             label_name=G.LABEL_NAME):
+    """create_dataset_from_file
+    Used when one single csv file are given
+    NOTE: Fucking Google this API directly modify the list given to `select_columns`
+    """
     dataset = tf.data.experimental.make_csv_dataset(
         file_pattern=csv_path,
         batch_size=batch_size,
         select_columns=G.COLUMNS.copy(),
-        label_name=G.LABEL_NAME,
+        label_name=label_name,
         num_epochs=num_epochs,
         shuffle=shuffle)
     return dataset
